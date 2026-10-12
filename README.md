@@ -3,7 +3,7 @@
 
 ## Project Overview
 
-This research project explores how fog harvesting can be innovated as a method of collecting water from atmospheric moisture.
+This research project explores how fog harvesting can be used as a method of collecting water from atmospheric moisture. Through exploring fog harvesting design changes, water collection can be maximized
 
 Fog harvesting is a passive water collection technique that uses surfaces or mesh structures to capture suspended water droplets. The collected droplets accumulate, combine, and flow into a collection system.
 
