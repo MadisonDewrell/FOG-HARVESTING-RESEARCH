@@ -1,0 +1,202 @@
+css.css:
+-------
+type{
+    padding: 40px;
+    font-family: 'ktegaki';
+src: url(https://cloverbell.neocities.org/ktegaki/ktegaki-webfont.woff) format('woff');
+}
+
+index.html:
+----------
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Fog Harvesting Model</title>
+        <link rel="stylesheet" href="css.css"/>
+    </head>
+
+    <body>
+        <div id="type">
+            <center>
+                <header class="text-center">
+                    <h1 class="text-2xl font-bold">Madison Dewrell Fog Harvesting Model</h1>
+                    <hr>
+                </header>
+
+                <main>
+                    <label for="area">area:</label>
+                    <input type="text" id="area" name="area" placeholder="1.75">
+                    <br>
+                    <br>
+
+                    <label for="calculate">Input for calculating co-efficient</label>
+                    <br>
+                    <textarea name="calculate" id="calculate" style="width: 100%" rows="5" placeholder="relative humidity (%), wind speed (m/s), Air temperature (C), Fog yield (L)
+                    100,7.5,6.95,0
+                    100,10.10,6.5,0.83
+                    100,12.75,6.15,0.82">
+                        
+                    </textarea>
+                    <br>
+
+                    <button onclick="calculate()">Calculate co-efficient</button>
+                    <br>
+                    <br>
+
+                    <label for="co-efficient">co-efficient:</label>
+                    <input type="text" id="co-efficient" name="co-efficient" placeholder="0.60">
+                    <br>
+                    <br>
+
+                    <label for="humidity">humidity:</label>
+                    <input type="text" id="humidity" name="humidity" placeholder="100">
+                    <br>
+
+                    <label for="humidity-before">humidity before (the previous hour):</label>
+                    <input type="text" id="humidity-before" name="humidity-before" placeholder="99">
+                    <br>
+
+                    <label for="wind-velocity">wind velocity:</label>
+                    <input type="text" id="wind-velocity" name="wind-velocity" placeholder="3.95">
+                    <br>
+
+                    <label for="temperature">temperature:</label>
+                    <input type="text" id="temperature" name="temperature" placeholder="8.1">
+                    <br>
+
+                    <button onclick="estimate()">Estimate</button>
+                    <br>
+
+                    <p>Estimated Fog Yield Per Hour: <span id="fog-yield">0.00</span>L</p>
+                </main>
+            </center>
+        </div>
+
+        <script>
+            // F_w expected fog-water volume
+            // f_C fog-collection co-efficient
+            // FPT Fog Potential Indent
+            // f_H humidity function
+            // f_W wind speed function
+            // A_c area of fog collector
+            // T dry bulb temperature
+            // T_d dew point for the specific weather conditions
+            // e actual vapor pressure in millibar
+            // RH relative humidity
+            // e_s saturated water vapor pressure in millibar
+            // f_H_i humidity at a timestep
+            // V wind speed
+
+            function calculate() {
+                const input = document.getElementById("calculate").value.trim().split('\n');
+                const area = Number(document.getElementById("area").value);
+
+                if (!area || !document.getElementById("calculate").value.trim()) {
+                    alert("Please enter the area and data first.");
+                    return;
+                }
+
+                var previous_humidity = Number(input[0].split(',')[0]);
+
+                var fog_total = 0;
+                var estimate_total = 0;
+
+                input.forEach((x) => {
+                    const line = x.split(',');
+                    const humidity = Number(line[0]);
+                    const wind_speed = Number(line[1]);
+                    const air_temperature = Number(line[2]);
+                    const fog_yield = Number(line[3]);
+
+                    const estimate = easy_calc(
+                        1,
+                        area,
+                        air_temperature,
+                        humidity,
+                        previous_humidity,
+                        wind_speed
+                    );
+
+                    previous_humidity = humidity;
+                    fog_total += fog_yield;
+                    estimate_total += estimate;
+                });
+
+                if (!Number.isFinite(estimate_total) || estimate_total === 0) {
+                    alert("Cannot calculate coefficient: estimated total is zero or invalid.");
+                    return;
+                }
+
+                document.getElementById("co-efficient").value = fog_total / estimate_total;
+            }
+
+            function estimate() {
+                const _estimate = easy_calc(
+                    Number(document.getElementById("co-efficient").value),
+                    Number(document.getElementById("area").value),
+                    Number(document.getElementById("temperature").value),
+                    Number(document.getElementById("humidity").value),
+                    Number(document.getElementById("humidity-before").value),
+                    Number(document.getElementById("wind-velocity").value)
+                );
+
+                console.log(_estimate);
+                document.getElementById("fog-yield").innerText = _estimate;
+            }
+
+            function easy_calc(co_efficient, area, temperature, humidity, humidity_before, wind_velocity) {
+                const f_c = co_efficient;
+                const A_c = area;
+
+                const T = temperature;
+                const RH_i = humidity;
+                const RH_i_minus_1 = humidity_before;
+                const V = wind_velocity;
+
+                const es = e_s(T);
+                const _e = e(RH_i, es);
+                const Td = T_d(_e);
+                const _FPI = FPI(T, Td);
+
+                const f_H = f_H_i(RH_i, RH_i_minus_1);
+                const _f_W = f_W(V);
+
+                return F_w(f_c, _FPI, f_H, _f_W, A_c);
+            }
+
+            function F_w(f_c, _FPI, f_H, _f_W, A_c) {
+                return f_c * _FPI * f_H * _f_W * A_c;
+            }
+
+            function FPI(T, _T_d) {
+                if (_T_d + 1.0 <= T) return 0;
+                return (_T_d + 1.0 - T) * 2.6;
+            }
+
+            function T_d(_e) {
+                return (243.5 * Math.log(_e / 6.112)) / (17.67 - Math.log(_e / 6.112));
+            }
+
+            function e(RH, _e_s) {
+                return RH / 100.0 * _e_s;
+            }
+
+            function e_s(T) {
+                return 6.112 * Math.exp(17.67 * T / (T + 243.5));
+            }
+
+            function f_H_i(RH_i, RH_i_1) {
+                return (RH_i + RH_i_1) / 200.0;
+            }
+
+            function f_W(V) {
+                if (V < 4.0) return 0.4 * V;
+                return 3.0 / V;
+            }
+        </script>
+    </body>
+</html>
+
